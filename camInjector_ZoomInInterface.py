@@ -25,7 +25,7 @@ class CAMINJECT_OT_zoomin(bpy.types.Operator):
     zoomedInFrame : bpy.props.IntProperty(
     name="zoomed in frame",
     description="When do you want you camera movement to stop ?",
-    default=250,
+    default = 250,
     min = 2,
     soft_max = 43200,
     )
@@ -33,23 +33,23 @@ class CAMINJECT_OT_zoomin(bpy.types.Operator):
     zoomedOutFrame : bpy.props.IntProperty(
     name="zoomed out frame",
     description="When do you want you camera movement to start ?",
-    default=1,
-    min=1,
-    soft_max=43199,
+    default = 1,
+    min = 1,
+    soft_max = 43199,
     )
     
     zoomedInValue : bpy.props.FloatProperty(
-    name="zoomed in value",
+    name = "zoomed in value",
     description="How much zoomed in should the camera be ?",
-    default=0.6,
-    min=0,
+    default = 0.6,
+    min = 0,
     )
     
     zoomedOutValue : bpy.props.FloatProperty(
-    name="zoomed out value",
-    description="How much zoomed out should the camera be ?",
-    default=1,
-    min=0,
+    name = "zoomed out value",
+    description = "How much zoomed out should the camera be ?",
+    default = 1,
+    min = 0,
     )
     
     
@@ -100,7 +100,7 @@ class VIEW3D_PT_zoomin(bpy.types.Panel):
     bl_label = "Camera Injector"
     
     def draw(self, context):
-        self.layout.operator("caminject.zoomin", name="Zoom In")
+        self.layout.operator("caminject.zoomin", text="Zoom In")
         
 
 
@@ -113,5 +113,5 @@ def unregister():
         bpy.utils.unregister_class(VIEW3D_PT_zoomin)
 
 # ---- line to load the script directly in the blender text editor ; no point to it if it's an addon.      
-if __name__ == "__main__":
-        register()
+#if __name__ == "__main__":
+#        register()
