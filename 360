@@ -1,0 +1,27 @@
+import bpy 
+import os
+import sys
+
+CameraXLocation = 6
+
+bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=(CameraXLocation, 0, 0), rotation=(0.0, 0.0, 0.0), scale=(2, 2, 2))
+Camera = bpy.context.selected_objects[0]
+
+bpy.data.objects['Camera'].select_set(True)
+
+
+
+
+
+
+Camera.select_set(True)
+
+
+bpy.context.scene.render.engine = 'CYCLES'
+
+bpy.context.object.data.cycles.panorama_type = 'EQUIRECTANGULAR'
+
+
+
+bpy.context.scene.render.resolution_x = 7168
+bpy.context.scene.render.resolution_y = 3584
