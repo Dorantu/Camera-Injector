@@ -13,7 +13,6 @@ bl_info = {
 import bpy
 import math
 
-
 # ---------------- VARIABLES ----------------
 
 class Properties(bpy.types.PropertyGroup):
@@ -25,7 +24,7 @@ class Properties(bpy.types.PropertyGroup):
     ('Option 1', "Select a preset", ""),
     ("Option 2", "Zoom In", "The camera will move towards the focus point"),
     ("Option 3", "Zoom Out", "The camera will move away from the focus point"),
-    ("Option 4", "Turnaround", "The camera will turn around the focus point"),
+    ("Option 4", "Turn Around", "The camera will turn around the focus point"),
     ("Option 5", "Vertigo", "")]
     )
      
@@ -45,14 +44,14 @@ class Properties(bpy.types.PropertyGroup):
     soft_max = 43199,
     )
     
-    beginValue : bpy.props.FloatProperty(
+    smallValue : bpy.props.FloatProperty(
     name = "low value",
     description="How much zoomed in should the camera be ?",
     default = 0.6,
     min = 0,
     )
     
-    endValue : bpy.props.FloatProperty(
+    bigValue : bpy.props.FloatProperty(
     name = "max value",
     description = "How much zoomed out should the camera be ?",
     default = 1,
@@ -85,16 +84,28 @@ class VIEW3D_PT_CameraInjectorInterface(bpy.types.Panel):
         
         if propertiesTool.enumSelectionPreset == "Option 2":
             
-            layout.prop(propertiesTool, "beginValue", text="Close Position")
-            layout.prop(propertiesTool, "endValue", text="Far Position")
+            layout.prop(propertiesTool, "smallValue", text="Close Position")
+            layout.prop(propertiesTool, "bigValue", text="Far Position")
             layout.prop(propertiesTool, "beginFrame", text="First frame")
             layout.prop(propertiesTool, "endFrame", text="Last frame")
  
+        elif propertiesTool.enumSelectionPreset == "Option 3":  
+            layout.prop(propertiesTool, "smallValue", text="Close Position")
+            layout.prop(propertiesTool, "bigValue", text="Far Position")
+            layout.prop(propertiesTool, "beginFrame", text="First frame")
+            layout.prop(propertiesTool, "endFrame", text="Last frame") 
+ 
         elif propertiesTool.enumSelectionPreset == "Option 4": 
             layout.prop_search(scene, "target", scene, "objects", text="Target")
-            layout.prop(propertiesTool, "endValue", text = "Circle radius")
+            layout.prop(propertiesTool, "bigValue", text = "Circle radius")
             layout.prop(propertiesTool, "beginFrame", text = "First frame")
             layout.prop(propertiesTool, "endFrame", text = "Last frame")
+            
+        elif propertiesTool.enumSelectionPreset == "Option 5": 
+            layout.prop(propertiesTool, "smallValue", text="Close Position")
+            layout.prop(propertiesTool, "bigValue", text="Far Position")
+            layout.prop(propertiesTool, "beginFrame", text="First frame")
+            layout.prop(propertiesTool, "endFrame", text="Last frame")
             
 # ---------------- OPERATOR ----------------
 
@@ -117,6 +128,9 @@ class CAMINJECT_OT_mainOperator(bpy.types.Operator):
         if propertiesTool.enumSelectionPreset == "Option 2":
             zoomIn()
             
+        if propertiesTool.enumSelectionPreset == "Option 3":
+            zoomOut()
+            
         if propertiesTool.enumSelectionPreset == "Option 4":
             circle = bpy.context.scene.objects.get("Circle")
             
@@ -126,6 +140,9 @@ class CAMINJECT_OT_mainOperator(bpy.types.Operator):
                 bpy.data.objects.remove(ob)
                 bpy.data.objects.remove(cam)
             turnAround(targetSelected)
+            
+        if propertiesTool.enumSelectionPreset == "Option 5":
+            vertigo()
 
         return {'FINISHED'}
 
@@ -176,17 +193,67 @@ def zoomIn():
         
     #camera keying, for the movement
 
-    cameraScaler.scale = (propertiesTool.beginValue , propertiesTool.beginValue, propertiesTool.beginValue)
+    cameraScaler.scale = (propertiesTool.bigValue , propertiesTool.bigValue, propertiesTool.bigValue)
     cameraScaler.keyframe_insert(data_path="scale", frame = propertiesTool.beginFrame)
         
-    cameraScaler.scale = (propertiesTool.endValue, propertiesTool.endValue, propertiesTool.endValue)
+    cameraScaler.scale = (propertiesTool.smallValue, propertiesTool.smallValue, propertiesTool.smallValue)
+    cameraScaler.keyframe_insert(data_path="scale", frame = propertiesTool.endFrame)  
+
+def zoomOut():
+    
+    propertiesTool = bpy.context.scene.propertiesTool
+
+    cameraZoomIn = bpy.context.scene.objects.get("Camera with Zoom In")
+    
+    #detect is there is already a camera with a zoom in effect,
+    # and if so delete it and all that was created for this movement to exist.
+    if cameraZoomIn:
+        targetZoomIn = bpy.data.objects['Camera target']
+        scalerZoomIn = bpy.data.objects['Scale me to adjust the camera zoom']
+        camZoomIn = bpy.data.objects['Camera with Zoom In']
+        objectsPreviouslyAdded = [targetZoomIn, scalerZoomIn, camZoomIn]
+        for objectsToDelete in objectsPreviouslyAdded:
+            bpy.data.objects.remove(objectsToDelete)
+     
+#setting up the scene and the components's behaviour
+    
+    #create an empty object
+    bpy.ops.object.empty_add(type='SPHERE', align='WORLD', location=(0, 0, 0), scale=(50, 50, 50))
+    cameraTarget = bpy.context.active_object
+    cameraTarget.name = "Camera target"
+
+    bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
+    cameraScaler = bpy.context.active_object
+    #rename the active object
+    cameraScaler.name = "Scale me to adjust the camera zoom"
+
+
+    #create a camera
+    bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=(7, -10, 8), rotation=(59.0, 0.0, 35.0), scale=(2, 2, 2))
+    #save the cam in a new variable
+    camera = bpy.context.active_object
+    camera.name = "Camera with Zoom In"
+
+    #add a contraint of type "track to" and use the empty "cameraTarget" as the target
+    bpy.ops.object.constraint_add(type='TRACK_TO')
+    bpy.context.object.constraints["Track To"].target = cameraTarget
+
+    #parent the camera to the scaler
+    camera.parent = cameraScaler
+        
+    #camera keying, for the movement
+
+    cameraScaler.scale = (propertiesTool.smallValue , propertiesTool.smallValue, propertiesTool.smallValue)
+    cameraScaler.keyframe_insert(data_path="scale", frame = propertiesTool.beginFrame)
+        
+    cameraScaler.scale = (propertiesTool.bigValue, propertiesTool.bigValue, propertiesTool.bigValue)
     cameraScaler.keyframe_insert(data_path="scale", frame = propertiesTool.endFrame)  
 
 
 def turnAround(targetSelected):     
 
 
-    bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=(bpy.context.scene.propertiesTool.endValue, 0, 0), rotation=(0.0, 0.0, 0.0), scale=(2, 2, 2))
+    bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=(bpy.context.scene.propertiesTool.bigValue, 0, 0), rotation=(0.0, 0.0, 0.0), scale=(2, 2, 2))
     Camera = bpy.context.selected_objects[0]
     scene = bpy.context.scene
     bpy.data.objects['Camera'].select_set(True)
@@ -199,9 +266,9 @@ def turnAround(targetSelected):
     bpy.ops.mesh.primitive_circle_add(radius=1, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
     global Circle
     Circle = bpy.context.selected_objects[0]
-    Circle.scale[0] = bpy.context.scene.propertiesTool.endValue
-    Circle.scale[1] = bpy.context.scene.propertiesTool.endValue
-    Circle.scale[2] = bpy.context.scene.propertiesTool.endValue
+    Circle.scale[0] = bpy.context.scene.propertiesTool.bigValue
+    Circle.scale[1] = bpy.context.scene.propertiesTool.bigValue
+    Circle.scale[2] = bpy.context.scene.propertiesTool.bigValue
 
 
     #Parent Camera to Circle
@@ -234,6 +301,60 @@ def turnAround(targetSelected):
     for point in AnimCurves:
         for pointCurve in point.keyframe_points:
             pointCurve.interpolation = 'LINEAR'
+
+
+def vertigo():
+    
+    propertiesTool = bpy.context.scene.propertiesTool
+    cameraVertigo = bpy.context.scene.objects.get("Camera with Vertigo effect")
+    focalLengthTweaker = 0.25
+    
+    #detect is there is already a camera with a zoom in effect,
+    # and if so delete it and all that was created for this movement to exist.
+    if cameraVertigo:
+        targetVertigo = bpy.data.objects['Camera target | Vertigo']
+        scalerVertigo = bpy.data.objects['Scale me to adjust the camera zoom of the vertigo effect']
+        camVertigo = bpy.data.objects['Camera with Vertigo effect']
+        objectsPreviouslyAdded = [targetVertigo, scalerVertigo, camVertigo]
+        for objectsToDelete in objectsPreviouslyAdded:
+            bpy.data.objects.remove(objectsToDelete)
+    
+    
+    #create an empty object
+    bpy.ops.object.empty_add(type='SPHERE', align='WORLD', location=(0, 0, 0), scale=(50, 50, 50))
+    cameraTarget = bpy.context.active_object
+    cameraTarget.name = "Camera target | Vertigo"
+
+    bpy.ops.object.empty_add(type='PLAIN_AXES', align='WORLD', location=(0, 0, 0), scale=(1, 1, 1))
+    cameraScaler = bpy.context.active_object
+    #rename the active object
+    cameraScaler.name = "Scale me to adjust the camera zoom of the vertigo effect"
+
+
+    #create a camera
+    bpy.ops.object.camera_add(enter_editmode=False, align='VIEW', location=(7, -10, 8), rotation=(59.0, 0.0, 35.0), scale=(2, 2, 2))
+    #save the cam in a new variable
+    camera = bpy.context.active_object
+    camera.name = "Camera with Vertigo effect"
+
+    #add a contraint of type "track to" and use the empty "cameraTarget" as the target
+    bpy.ops.object.constraint_add(type='TRACK_TO')
+    bpy.context.object.constraints["Track To"].target = cameraTarget
+
+    #parent the camera to the scaler
+    camera.parent = cameraScaler
+        
+    #camera keying, for the movement and the camera lens
+
+    cameraScaler.scale = (propertiesTool.bigValue , propertiesTool.bigValue, propertiesTool.bigValue)
+    cameraScaler.keyframe_insert(data_path="scale", frame = propertiesTool.beginFrame)
+    camera.data.lens = 50
+    camera.data.keyframe_insert("lens", frame = (propertiesTool.beginFrame))
+        
+    cameraScaler.scale = (propertiesTool.smallValue * focalLengthTweaker, propertiesTool.smallValue * focalLengthTweaker, propertiesTool.smallValue * focalLengthTweaker)
+    cameraScaler.keyframe_insert(data_path="scale", frame = propertiesTool.endFrame)
+    camera.data.lens = 10
+    camera.data.keyframe_insert("lens", frame = (propertiesTool.endFrame))
     
 def degreeToEuler(degree):
     return ((2 * math.pi) * 360) / degree
@@ -259,5 +380,5 @@ def unregister():
     del bpy.types.Scene.propertiesTool
 
 #line to load the script directly in the blender text editor ; no point to it if it's an addon.      
-if __name__ == "__main__":
-        register()
+#if __name__ == "__main__":
+#        register()
